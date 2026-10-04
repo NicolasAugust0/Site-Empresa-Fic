@@ -1,0 +1,87 @@
+// ComparaFood — modelo de dados
+// Valores monetários são armazenados em CENTAVOS (Int) para evitar erros de ponto flutuante.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Restaurant {
+  id        Int       @id @default(autoincrement())
+  name      String
+  category  String // slug da categoria (pizza, hamburguer, ...)
+  image     String // emoji ou URL de imagem
+  rating    Float     @default(0)
+  address   String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  products  Product[]
+}
+
+model Product {
+  id           Int        @id @default(autoincrement())
+  restaurantId Int
+  name         String
+  description  String
+  category     String
+  image        String
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  offers       Offer[]
+
+  @@index([restaurantId])
+}
+
+model Platform {
+  id         Int      @id @default(autoincrement())
+  slug       String   @unique // ifood, 99food, keeta
+  name       String
+  logo       String // sigla/emoji exibido no badge, ou URL de logo
+  color      String // cor principal (hex)
+  textColor  String   @default("#FFFFFF")
+  websiteUrl String
+  priority   Int      @default(0) // usado como critério de desempate opcional
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  offers     Offer[]
+}
+
+model Offer {
+  id              Int          @id @default(autoincrement())
+  productId       Int
+  platformId      Int
+  productPrice    Int // centavos
+  deliveryFee     Int          @default(0)
+  additionalFee   Int          @default(0) // taxa de serviço / embalagem
+  discount        Int          @default(0) // desconto da plataforma/restaurante
+  couponDiscount  Int          @default(0)
+  couponCode      String?
+  promoLabel      String? // ex.: "Promoção do dia"
+  deliveryTimeMin Int          @default(40)
+  finalPrice      Int // calculado pelo PriceCalculator e armazenado para consultas
+  redirectUrl     String
+  available       Boolean      @default(true)
+  updatedAt       DateTime     @updatedAt
+  product         Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  platform        Platform     @relation(fields: [platformId], references: [id], onDelete: Cascade)
+  clicks          ClickEvent[]
+
+  @@unique([productId, platformId])
+  @@index([platformId])
+}
+
+// Registro de cliques em "Pedir agora" — base para métricas de conversão
+model ClickEvent {
+  id        Int      @id @default(autoincrement())
+  offerId   Int
+  createdAt DateTime @default(now())
+  offer     Offer    @relation(fields: [offerId], references: [id], onDelete: Cascade)
+
+  @@index([offerId])
+}
